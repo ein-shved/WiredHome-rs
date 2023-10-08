@@ -300,26 +300,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "embassy-stm32f1-examples"
-version = "0.1.0"
-dependencies = [
- "cortex-m",
- "cortex-m-rt",
- "defmt",
- "defmt-rtt",
- "embassy-executor",
- "embassy-futures",
- "embassy-stm32",
- "embassy-sync",
- "embassy-time",
- "embedded-hal 0.2.7",
- "futures",
- "heapless",
- "nb 1.1.0",
- "panic-probe",
-]
-
-[[package]]
 name = "embassy-sync"
 version = "0.2.0"
 source = "git+https://github.com/embassy-rs/embassy.git#38891c29ea708a86ec42c6106ad2fdb1466a0cde"
@@ -803,4 +783,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ee8f19f9d74293faf70901bc20ad067dc1ad390d2cbf1e3f75f721ffee908b6"
 dependencies = [
  "vcell",
+]
+
+[[package]]
+name = "wired_home"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "defmt",
+ "defmt-rtt",
+ "embassy-executor",
+ "embassy-futures",
+ "embassy-stm32",
+ "embassy-sync",
+ "embassy-time",
+ "embedded-hal 0.2.7",
+ "futures",
+ "heapless",
+ "nb 1.1.0",
+ "panic-probe",
 ]

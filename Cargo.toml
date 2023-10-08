@@ -1,8 +1,8 @@
 [package]
 edition = "2021"
-name = "embassy-stm32f1-examples"
+name = "wired_home"
 version = "0.1.0"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 
 [dependencies]
 embassy-sync = { git = "https://github.com/embassy-rs/embassy.git", features = ["defmt"] }
