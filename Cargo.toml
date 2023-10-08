@@ -28,7 +28,8 @@ embassy-stm32 = { git = "https://github.com/embassy-rs/embassy.git", features = 
   "unstable-pac",
   "memory-x",
   "time-driver-any",
-  "unstable-traits"
+  "unstable-traits",
+  "exti"
 ] }
 
 embassy-futures = { git = "https://github.com/embassy-rs/embassy.git" }
