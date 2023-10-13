@@ -29,6 +29,9 @@ impl<'d, T: Pin> DebonceExtiInput<'d, T> {
             debonce,
         }
     }
+    pub fn get(&self) -> ButtonState {
+        self.state
+    }
 }
 
 impl<T: Pin> WaitDebonce for DebonceExtiInput<'_, T> {
@@ -37,13 +40,13 @@ impl<T: Pin> WaitDebonce for DebonceExtiInput<'_, T> {
             let st1 = read_state_debonce(&mut self.input, self.debonce).await;
             if st1 != self.state {
                 self.state = st1;
-                break self.state.clone();
+                break self.state;
             }
             self.input.wait_for_any_edge().await;
             let st2 = read_state_debonce(&mut self.input, self.debonce).await;
             if st1 != st2 {
                 self.state = st2;
-                break self.state.clone();
+                break self.state;
             }
         }
     }

@@ -1,7 +1,13 @@
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum ButtonState {
     High,
     Low,
+}
+
+impl From<ButtonState> for bool {
+    fn from(st: ButtonState) -> bool {
+        st == ButtonState::Low
+    }
 }
 
 pub trait WaitDebonce {
@@ -9,3 +15,4 @@ pub trait WaitDebonce {
 }
 
 pub mod exti;
+pub mod exti_event;
