@@ -8,12 +8,8 @@ pub struct ExtiInputSwitcherEvent<'d, T: Pin> {
 }
 
 impl<'d, T: Pin> ExtiInputSwitcherEvent<'d, T> {
-    pub fn new(
-        button: DebonceExtiInput::<'d, T>
-    ) -> ExtiInputSwitcherEvent<'d, T> {
-        ExtiInputSwitcherEvent::<'d, T> {
-            button,
-        }
+    pub fn new(button: DebonceExtiInput<'d, T>) -> ExtiInputSwitcherEvent<'d, T> {
+        ExtiInputSwitcherEvent::<'d, T> { button }
     }
 }
 
@@ -22,12 +18,10 @@ impl<'d, T: Pin> Event for ExtiInputSwitcherEvent<'d, T> {
     async fn next(&mut self) -> ButtonState {
         self.button.wait_for_change().await
     }
-    fn initial(&mut self) -> Option<Self::Data>
-    {
+    fn initial(&mut self) -> Option<Self::Data> {
         Some(self.button.get())
     }
 }
-
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum PushState {
@@ -43,19 +37,11 @@ pub struct ExtiInputPushEvent<'d, T: Pin> {
 }
 
 impl<'d, T: Pin> ExtiInputPushEvent<'d, T> {
-    pub fn new(
-        button: DebonceExtiInput::<'d, T>,
-        gap: Duration
-    ) -> ExtiInputPushEvent<'d, T> {
+    pub fn new(button: DebonceExtiInput<'d, T>, gap: Duration) -> ExtiInputPushEvent<'d, T> {
         let state = Self::state_from_button(button.get());
-        ExtiInputPushEvent::<'d, T> {
-            button,
-            gap,
-            state,
-        }
+        ExtiInputPushEvent::<'d, T> { button, gap, state }
     }
-    fn state_from_button(btn: ButtonState) -> PushState
-    {
+    fn state_from_button(btn: ButtonState) -> PushState {
         match btn {
             ButtonState::High => PushState::Off,
             ButtonState::Low => PushState::On,
@@ -68,7 +54,7 @@ impl<'d, T: Pin> Event for ExtiInputPushEvent<'d, T> {
     async fn next(&mut self) -> PushState {
         loop {
             use embassy_futures::select;
-            use select::{Either, select};
+            use select::{select, Either};
             let btn = self.button.wait_for_change().await;
             let push = Self::state_from_button(btn);
 
@@ -93,8 +79,8 @@ impl<'d, T: Pin> Event for ExtiInputPushEvent<'d, T> {
                 Either::First(_) => {
                     self.state = PushState::On;
                     self.state
-                },
-                    Either::Second(_) => {
+                }
+                Either::Second(_) => {
                     self.state = PushState::Off;
                     PushState::Pushed
                 }
