@@ -27,11 +27,11 @@ async fn main(_spawner: Spawner) {
 
     let btn1 = DebonceExtiInput::new(p.PB11, p.EXTI11, Pull::Up, Duration::from_millis(5)).await;
     let btn1 = ExtiInputPushEvent::new(btn1, Duration::from_millis(300));
-    let btn1 = SinglePwmLedInput::new(btn1, Channel::Ch2);
+    let btn1 = SinglePwmLedInput::new(btn1, light::Channel::Ch2 | light::Channel::Ch1);
 
     let btn2 = DebonceExtiInput::new(p.PB10, p.EXTI10, Pull::Up, Duration::from_millis(5)).await;
     let btn2 = ExtiInputSwitcherEvent::new(btn2);
-    let btn2 = SinglePwmLedInput::new(btn2, Channel::Ch2);
+    let btn2 = SinglePwmLedInput::new(btn2, light::Channel::Ch2 | light::Channel::Ch1);
 
     let mut pwm = SimplePwm::new(
         p.TIM1,

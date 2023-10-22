@@ -1,8 +1,10 @@
-use crate::event::{Event, Handler};
 use crate::debounce::exti_event::PushState;
+use crate::event::{Event, Handler};
+use bitmask_enum::*;
+use embassy_futures::join::join4;
 use embassy_stm32::gpio::{Level, Output, Pin};
 use embassy_stm32::pwm::simple_pwm::SimplePwm;
-use embassy_stm32::pwm::{CaptureCompare16bitInstance, Channel};
+use embassy_stm32::pwm::{CaptureCompare16bitInstance, Channel as PwmChannel};
 use embassy_time::{Duration, Timer};
 
 pub struct Led<'d, T: Pin> {
@@ -31,16 +33,54 @@ pub enum PwmLedEvent {
     Hold(bool),
 }
 
+#[bitmask]
+pub enum Channel {
+    Ch1,
+    Ch2,
+    Ch3,
+    Ch4,
+}
+
+impl From<Channel> for PwmChannel {
+    fn from(value: Channel) -> Self {
+        let mut res: Option<PwmChannel> = None;
+
+        value.for_each(|ch| {
+            if res.is_none() {
+                res = Some(ch)
+            }
+        });
+        res.unwrap()
+    }
+}
+
+impl Channel {
+    pub fn for_each<F: FnMut(PwmChannel)>(&self, mut f: F) {
+        if self.contains(Channel::Ch1) {
+            f(PwmChannel::Ch1);
+        }
+        if self.contains(Channel::Ch2) {
+            f(PwmChannel::Ch2);
+        }
+        if self.contains(Channel::Ch3) {
+            f(PwmChannel::Ch3);
+        }
+        if self.contains(Channel::Ch4) {
+            f(PwmChannel::Ch4);
+        }
+    }
+}
+
 impl<B> From<B> for PwmLedEvent
-    where B: Into<bool>
+where
+    B: Into<bool>,
 {
     fn from(value: B) -> Self {
         PwmLedEvent::OnOf(value.into())
     }
 }
 
-impl From<PushState> for PwmLedEvent
-{
+impl From<PushState> for PwmLedEvent {
     fn from(value: PushState) -> Self {
         match value {
             PushState::On => PwmLedEvent::Hold(true),
@@ -50,11 +90,10 @@ impl From<PushState> for PwmLedEvent
     }
 }
 
-
 #[derive(Default, PartialEq, Clone, Copy)]
 enum PwmLedDirection {
-    #[default]
     Off,
+    #[default]
     On,
 }
 
@@ -107,7 +146,7 @@ where
         }
     }
 
-    fn upd_duty(&mut self, n: i16, ch: Channel) {
+    fn upd_duty(&mut self, n: i16, ch: PwmChannel) {
         let max_duty = self.pwm.get_max_duty();
         let sch = self.get_channel(ch);
         let mut duty = sch.duty;
@@ -130,35 +169,48 @@ where
             }
         }
         sch.duty = duty;
-        self.pwm.set_duty(ch, duty);
+        self.pwm.set_duty(ch.into(), duty);
     }
-    fn get_channel(&mut self, ch: Channel) -> &mut PwmLedChannelState {
+
+    fn get_channel(&mut self, ch: PwmChannel) -> &mut PwmLedChannelState {
         match ch {
-            Channel::Ch1 => &mut self.ch1,
-            Channel::Ch2 => &mut self.ch2,
-            Channel::Ch3 => &mut self.ch3,
-            Channel::Ch4 => &mut self.ch4,
+            PwmChannel::Ch1 => &mut self.ch1,
+            PwmChannel::Ch2 => &mut self.ch2,
+            PwmChannel::Ch3 => &mut self.ch3,
+            PwmChannel::Ch4 => &mut self.ch4,
         }
     }
 
     async fn on_onof(&mut self, ch: Channel, on: bool) {
+        if ch.is_none() {
+            return;
+        }
         let max_duty = self.pwm.get_max_duty();
         let limit = if on { max_duty - 1 } else { 0 };
         let dur = self.warming / max_duty.into();
-        self.get_channel(ch).last_direction = on.into();
-        self.upd_duty(0, ch);
-        while self.get_channel(ch).duty != limit {
+        let pwmch: PwmChannel = ch.into();
+        let duty = self.get_channel(pwmch).duty;
+        ch.for_each(|ch| {
+            let sch = self.get_channel(ch);
+            sch.last_direction = on.into();
+            sch.duty = duty;
+            self.upd_duty(0, ch);
+        });
+        while self.get_channel(pwmch).duty != limit {
             Timer::after(dur).await;
-            if on {
-                self.upd_duty(1, ch);
-            } else {
-                self.upd_duty(-1, ch);
-            }
+            ch.for_each(|ch| {
+                if on {
+                    self.upd_duty(1, ch);
+                } else {
+                    self.upd_duty(-1, ch);
+                }
+            });
         }
     }
 
     async fn on_switched(&mut self, ch: Channel) {
-        let on: bool = self.get_channel(ch).last_direction.into();
+        let pwmch: PwmChannel = ch.into();
+        let on: bool = self.get_channel(pwmch).last_direction.into();
         self.on_onof(ch, !on).await
     }
 
@@ -175,10 +227,13 @@ where
 {
     type Data = (PwmLedEvent, Channel);
     async fn handle(&mut self, ev: Self::Data) {
-        match ev.0 {
-            PwmLedEvent::OnOf(_) => self.on_switched(ev.1).await,
-            PwmLedEvent::Switched => self.on_switched(ev.1).await,
-            PwmLedEvent::Hold(hold) => self.on_hold(ev.1, hold).await,
+        let ch = ev.1;
+        let ev = ev.0;
+
+        match ev {
+            PwmLedEvent::OnOf(_) => self.on_switched(ch).await,
+            PwmLedEvent::Switched => self.on_switched(ch).await,
+            PwmLedEvent::Hold(hold) => self.on_hold(ch, hold).await,
         }
     }
 }
