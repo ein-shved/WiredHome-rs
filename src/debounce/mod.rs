@@ -1,4 +1,4 @@
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, defmt::Format, Clone, Copy)]
 pub enum ButtonState {
     High,
     Low,

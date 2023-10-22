@@ -7,11 +7,11 @@ pub mod event;
 pub mod debounce;
 pub mod light;
 
-pub use event::Connection;
+pub use event::{Connection, ConnectionConsistent, ConnectionInterrupting};
 
 pub use debounce::{ButtonState, WaitDebonce};
 pub use debounce::exti::DebonceExtiInput;
-pub use debounce::exti_event::ExtiInputSwitcherEvent;
+pub use debounce::exti_event::{ExtiInputSwitcherEvent, ExtiInputPushEvent};
 
-pub use light::Led;
+pub use light::{Led, PwmLed, SinglePwmLedInput};
 

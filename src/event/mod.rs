@@ -11,21 +11,22 @@ pub trait Handler {
     async fn handle(&mut self, data: Self::Data);
 }
 
-pub struct Connection<Ev: Event, Hn: Handler> {
+pub trait Connection {
+    async fn run(&mut self);
+}
+
+pub struct ConnectionConsistent<Ev: Event, Hn: Handler> {
     event: Ev,
     handler: Hn,
 }
 
-impl<Ev, Hn, EvData, HnData> Connection<Ev, Hn>
+impl<Ev, Hn, EvData, HnData> Connection for ConnectionConsistent<Ev, Hn>
 where
     Ev: Event<Data = EvData>,
     Hn: Handler<Data = HnData>,
     HnData: From<EvData>,
 {
-    pub fn new(event: Ev, handler: Hn) -> Self {
-        Self { event, handler }
-    }
-    pub async fn run(&mut self) {
+    async fn run(&mut self) {
         if let Some(data) = self.event.initial() {
             self.handler.handle(data.into()).await
         }
@@ -33,6 +34,53 @@ where
             let data = self.event.next().await;
             self.handler.handle(data.into()).await
         }
+    }
+}
+
+impl<Ev, Hn> ConnectionConsistent<Ev, Hn>
+where
+    Ev: Event,
+    Hn: Handler,
+{
+    pub fn new(event: Ev, handler: Hn) -> Self {
+        Self { event, handler }
+    }
+}
+
+pub struct ConnectionInterrupting<Ev: Event, Hn: Handler> {
+    event: Ev,
+    handler: Hn,
+}
+
+impl<Ev, Hn, EvData, HnData> Connection for ConnectionInterrupting<Ev, Hn>
+where
+    Ev: Event<Data = EvData>,
+    Hn: Handler<Data = HnData>,
+    HnData: From<EvData>,
+{
+    async fn run(&mut self) {
+        use embassy_futures::select;
+        let (event, handler) = (&mut self.event, &mut self.handler);
+        let mut data: Option<EvData> = event.initial();
+        loop {
+            data = if let Some(data) = data {
+                match select::select(event.next(), handler.handle(data.into())).await {
+                    select::Either::First(data) => Some(data),
+                    select::Either::Second(_) => None,
+                }
+            } else {
+                Some(event.next().await)
+            }
+        }
+    }
+}
+impl<Ev, Hn> ConnectionInterrupting<Ev, Hn>
+where
+    Ev: Event,
+    Hn: Handler,
+{
+    pub fn new(event: Ev, handler: Hn) -> Self {
+        Self { event, handler }
     }
 }
 
@@ -105,3 +153,21 @@ where
         Self { ev1, ev2 }
     }
 }
+
+//struct MultiHandler<Hn: Handler> {
+//    hn: Hn,
+//}
+//
+//enum MultiData<Data1, Data2> {
+//    D1(Data1),
+//    D2(Data2),
+//}
+//
+//impl<Data1, Hn> Handler for MultiHandler<Hn>
+//where
+//    Hn: Handler<Data = Data1> + Handler<Data = bool>,
+//{
+//    type Data = MultiData<Data1, bool>;
+//
+//    async fn handle(&mut self, data: Self::Data) {}
+//}

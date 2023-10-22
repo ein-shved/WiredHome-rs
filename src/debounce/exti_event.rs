@@ -23,7 +23,7 @@ impl<'d, T: Pin> Event for ExtiInputSwitcherEvent<'d, T> {
     }
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, defmt::Format, Clone, Copy)]
 pub enum PushState {
     Off,
     Pushed,
@@ -36,32 +36,35 @@ pub struct ExtiInputPushEvent<'d, T: Pin> {
     gap: Duration,
 }
 
-impl<'d, T: Pin> ExtiInputPushEvent<'d, T> {
-    pub fn new(button: DebonceExtiInput<'d, T>, gap: Duration) -> ExtiInputPushEvent<'d, T> {
-        let state = Self::state_from_button(button.get());
-        ExtiInputPushEvent::<'d, T> { button, gap, state }
-    }
-    fn state_from_button(btn: ButtonState) -> PushState {
+fn state_from_button(btn: ButtonState) -> PushState {
         match btn {
             ButtonState::High => PushState::Off,
             ButtonState::Low => PushState::On,
         }
+}
+
+impl<'d, T: Pin> ExtiInputPushEvent<'d, T> {
+    pub fn new(button: DebonceExtiInput<'d, T>, gap: Duration) -> ExtiInputPushEvent<'d, T> {
+        let state = state_from_button(button.get());
+        ExtiInputPushEvent::<'d, T> { button, gap, state }
     }
 }
 
 impl<'d, T: Pin> Event for ExtiInputPushEvent<'d, T> {
     type Data = PushState;
     async fn next(&mut self) -> PushState {
-        loop {
+            use defmt::*;
+        let res = loop {
             use embassy_futures::select;
             use select::{select, Either};
-            let btn = self.button.wait_for_change().await;
-            let push = Self::state_from_button(btn);
 
-            if self.state == push {
+            let btn = self.button.wait_for_change().await;
+            let btn = state_from_button(btn);
+
+            if self.state == btn {
                 continue;
             }
-            if btn == ButtonState::Low {
+            if btn == PushState::Off {
                 self.state = PushState::Off;
                 break self.state;
             }
@@ -70,21 +73,25 @@ impl<'d, T: Pin> Event for ExtiInputPushEvent<'d, T> {
             let ev = async {
                 loop {
                     let btn = self.button.wait_for_change().await;
-                    if btn == ButtonState::Low {
+                    let btn = state_from_button(btn);
+                    if btn == PushState::Off {
                         break;
                     }
                 }
             };
             break match select(ev, to).await {
                 Either::First(_) => {
-                    self.state = PushState::On;
-                    self.state
-                }
-                Either::Second(_) => {
                     self.state = PushState::Off;
                     PushState::Pushed
                 }
+                Either::Second(_) => {
+                    self.state = PushState::On;
+                    self.state
+                }
             };
-        }
+        };
+
+        info!("Got event {:?}", res);
+        res
     }
 }
